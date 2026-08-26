@@ -1,0 +1,6 @@
+# dl configuration file
+# Place this at ~/.config/dl/config.toml or pass --config /path/to/config.toml
+
+# Directory where daily markdown files are stored.
+# Defaults to XDG_DATA_HOME/dl if not specified.
+data_dir = "~/.local/share/dl"
