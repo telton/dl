@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ func run(stdout io.Writer, stdin *os.File, args []string) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	showVersion := fs.Bool("version", false, "print version and exit")
 	configPath := fs.String("config", "", "path to config file")
+	project := fs.String("project", "", "project name (subdirectory under data_dir)")
 
 	if err := fs.Parse(args[1:]); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
@@ -28,6 +30,14 @@ func run(stdout io.Writer, stdin *os.File, args []string) error {
 	cfg, err := LoadConfig(*configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	dataDir := cfg.DataDir
+	if *project != "" {
+		dataDir = filepath.Join(dataDir, *project)
+		if err := os.MkdirAll(dataDir, 0750); err != nil {
+			return fmt.Errorf("create project dir: %w", err)
+		}
 	}
 
 	// Detect if stdin is a pipe or redirected
@@ -47,7 +57,7 @@ func run(stdout io.Writer, stdin *os.File, args []string) error {
 			return errors.New("empty entry")
 		}
 
-		if err := appendEntry(cfg.DataDir, entry); err != nil {
+		if err := appendEntry(dataDir, entry); err != nil {
 			return fmt.Errorf("append entry: %w", err)
 		}
 
@@ -55,7 +65,7 @@ func run(stdout io.Writer, stdin *os.File, args []string) error {
 	}
 
 	// Print existing entries
-	todayPath := todayFilePath(cfg.DataDir)
+	todayPath := todayFilePath(dataDir)
 	data, err := os.ReadFile(todayPath)
 	if err == nil && len(data) > 0 {
 		fmt.Fprintln(stdout, string(data))
@@ -76,7 +86,7 @@ func run(stdout io.Writer, stdin *os.File, args []string) error {
 			continue
 		}
 
-		if err := appendEntry(cfg.DataDir, line); err != nil {
+		if err := appendEntry(dataDir, line); err != nil {
 			fmt.Fprintf(stdout, "Error: %v\n", err)
 		}
 	}

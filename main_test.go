@@ -71,3 +71,37 @@ func TestRun_EmptyPipe(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty entry")
 }
+
+func TestRun_ProjectSubdir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+	dataDir := filepath.Join(tmpDir, "data")
+	projectDir := filepath.Join(dataDir, "myproject")
+
+	require.NoError(t, os.WriteFile(configPath, []byte("data_dir = \""+dataDir+"\"\n"), 0o600))
+
+	// Create piped stdin
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+
+	go func() {
+		writer.WriteString("project specific entry")
+		writer.Close()
+	}()
+
+	var stdout bytes.Buffer
+	err = run(&stdout, reader, []string{"dl", "--config", configPath, "--project", "myproject"})
+	require.NoError(t, err)
+
+	// Verify it wrote to the project subdir
+	content, err := readTodayEntries(projectDir)
+	require.NoError(t, err)
+	assert.Contains(t, content, "project specific entry")
+
+	// Verify it did NOT write to the root data dir
+	rootContent, err := readTodayEntries(dataDir)
+	require.NoError(t, err)
+	assert.Empty(t, rootContent)
+}
